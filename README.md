@@ -4,7 +4,7 @@ Run Oracle SQL directly inside VS Code notebooks with a clean, native workflow.
 
 ![Oracle SQL Notebook Hero](media/readme/hero-banner.png)
 
-[![Version](https://img.shields.io/badge/version-0.0.2-0f766e)](https://github.com/akrambel2115/oracle-sql-notebook/releases)
+[![Version](https://img.shields.io/badge/version-0.0.3-0f766e)](https://github.com/akrambel2115/oracle-sql-notebook/releases)
 [![VS Code](https://img.shields.io/badge/VS%20Code-%5E1.90.0-2563eb)](https://code.visualstudio.com/)
 [![License](https://img.shields.io/badge/license-MIT-1f2937)](LICENSE)
 
@@ -16,6 +16,7 @@ Oracle SQL Notebook gives you a dedicated `.isqlnb` notebook experience for Orac
 - Rich output renderer for result sets and execution plans.
 - Shared session per notebook run for realistic SQL/PLSQL workflows.
 - Pool-backed Oracle connections via `node-oracledb`.
+- Export `.isqlnb` notebooks as standalone HTML or PDF reports.
 
 ## Product Preview
 
@@ -81,6 +82,8 @@ END;
 - `Oracle SQL Notebook: Configure Connection`
 - `Oracle SQL Notebook: Set Connection Password`
 - `Oracle SQL Notebook: Clear Connection Password`
+- `Oracle SQL Notebook: Export Notebook as HTML`
+- `Oracle SQL Notebook: Export Notebook as PDF`
 
 ![Command Palette Shortcuts Screenshot](media/readme/command-palette-shortcuts.png)
 
