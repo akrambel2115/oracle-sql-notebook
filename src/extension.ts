@@ -11,6 +11,7 @@ import {
 } from "./config/settings";
 import { OraclePoolManager } from "./db/poolManager";
 import { OracleQueryExecutor, QueryExecutor } from "./db/queryExecutor";
+import { NotebookExportFormat, exportNotebook } from "./export/notebookExporter";
 import { Logger } from "./logging/logger";
 import { OracleNotebookController } from "./notebook/controller";
 import { OracleSqlNotebookSerializer } from "./notebook/serializer";
@@ -64,6 +65,148 @@ function getSettingsTarget(): vscode.ConfigurationTarget {
   return vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders.length > 0
     ? vscode.ConfigurationTarget.Workspace
     : vscode.ConfigurationTarget.Global;
+}
+
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return String(error);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function hasIsqlnbExtension(uri: vscode.Uri): boolean {
+  return uri.path.toLowerCase().endsWith(".isqlnb");
+}
+
+function isOracleSqlNotebookDocument(notebook: vscode.NotebookDocument): boolean {
+  return notebook.notebookType === NOTEBOOK_TYPE || hasIsqlnbExtension(notebook.uri);
+}
+
+function tryGetNotebookDocument(
+  commandArg: unknown
+): vscode.NotebookDocument | undefined {
+  if (!isRecord(commandArg)) {
+    return undefined;
+  }
+
+  const notebookType = commandArg.notebookType;
+  const uri = commandArg.uri;
+  const getCells = commandArg.getCells;
+
+  if (
+    typeof notebookType !== "string" ||
+    !(uri instanceof vscode.Uri) ||
+    typeof getCells !== "function"
+  ) {
+    return undefined;
+  }
+
+  return commandArg as unknown as vscode.NotebookDocument;
+}
+
+function tryGetNotebookUri(commandArg: unknown): vscode.Uri | undefined {
+  if (commandArg instanceof vscode.Uri) {
+    return commandArg;
+  }
+
+  if (Array.isArray(commandArg) && commandArg.length > 0) {
+    return tryGetNotebookUri(commandArg[0]);
+  }
+
+  if (!isRecord(commandArg)) {
+    return undefined;
+  }
+
+  const nestedUri =
+    ("uri" in commandArg ? commandArg.uri : undefined) ??
+    ("resourceUri" in commandArg ? commandArg.resourceUri : undefined);
+
+  return nestedUri instanceof vscode.Uri ? nestedUri : undefined;
+}
+
+async function resolveNotebookForExportCommand(
+  commandArg?: unknown
+): Promise<vscode.NotebookDocument | undefined> {
+  let targetNotebook = tryGetNotebookDocument(commandArg);
+
+  if (!targetNotebook && isRecord(commandArg) && "notebook" in commandArg) {
+    targetNotebook = tryGetNotebookDocument(commandArg.notebook);
+  }
+
+  const notebookUri = targetNotebook ? undefined : tryGetNotebookUri(commandArg);
+
+  if (!targetNotebook && notebookUri) {
+    targetNotebook = vscode.workspace.notebookDocuments.find(
+      (document) => document.uri.toString() === notebookUri.toString()
+    );
+
+    if (!targetNotebook) {
+      try {
+        targetNotebook = await vscode.workspace.openNotebookDocument(notebookUri);
+      } catch {
+        targetNotebook = undefined;
+      }
+    }
+  }
+
+  if (!targetNotebook) {
+    targetNotebook = vscode.window.activeNotebookEditor?.notebook;
+  }
+
+  if (!targetNotebook) {
+    void vscode.window.showErrorMessage(
+      "Open an Oracle SQL Notebook (.isqlnb) to export it."
+    );
+    return undefined;
+  }
+
+  if (!isOracleSqlNotebookDocument(targetNotebook)) {
+    void vscode.window.showErrorMessage(
+      "The selected notebook is not an Oracle SQL Notebook (.isqlnb)."
+    );
+    return undefined;
+  }
+
+  return targetNotebook;
+}
+
+async function runNotebookExportCommand(
+  format: NotebookExportFormat,
+  logger: Logger,
+  commandArg?: unknown
+): Promise<void> {
+  const targetNotebook = await resolveNotebookForExportCommand(commandArg);
+
+  if (!targetNotebook) {
+    return;
+  }
+
+  const formatLabel = format === "html" ? "HTML" : "PDF";
+
+  try {
+    const destination = await exportNotebook(targetNotebook, format);
+
+    if (!destination) {
+      return;
+    }
+
+    const destinationLabel =
+      destination.scheme === "file" ? destination.fsPath : destination.toString();
+
+    void vscode.window.showInformationMessage(
+      `Oracle SQL Notebook exported as ${formatLabel}: ${destinationLabel}`
+    );
+  } catch (error) {
+    logger.error(`Failed to export notebook as ${formatLabel}.`, error);
+    void vscode.window.showErrorMessage(
+      `Failed to export notebook as ${formatLabel}: ${getErrorMessage(error)}`
+    );
+  }
 }
 
 async function runConfigureConnectionWizard(
@@ -309,6 +452,24 @@ export function activate(
         void vscode.window.showInformationMessage(
           `Password cleared for alias '${alias}'.`
         );
+      }
+    )
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      "oracleSqlNotebook.exportHtml",
+      async (commandArg?: unknown) => {
+        await runNotebookExportCommand("html", logger, commandArg);
+      }
+    )
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      "oracleSqlNotebook.exportPdf",
+      async (commandArg?: unknown) => {
+        await runNotebookExportCommand("pdf", logger, commandArg);
       }
     )
   );
