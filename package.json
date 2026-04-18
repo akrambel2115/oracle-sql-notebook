@@ -1,0 +1,244 @@
+{
+  "name": "oracle-sql-notebook",
+  "displayName": "Oracle SQL Notebook",
+  "description": "Run Oracle SQL queries natively in VS Code notebooks (.isqlnb).",
+  "version": "0.0.1",
+  "publisher": "bel-dev",
+  "license": "MIT",
+  "icon": "media/icons/extension-icon.png",
+  "homepage": "https://github.com/akrambel2115/oracle-sql-notebook#readme",
+  "bugs": {
+    "url": "https://github.com/akrambel2115/oracle-sql-notebook/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/akrambel2115/oracle-sql-notebook.git"
+  },
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Notebooks",
+    "Data Science",
+    "Other"
+  ],
+  "keywords": [
+    "oracle",
+    "sql",
+    "notebook",
+    "database"
+  ],
+  "main": "./dist/extension.js",
+  "activationEvents": [
+    "onNotebook:oracle-sql-notebook"
+  ],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": "limited",
+      "description": "Notebook execution and credential operations require a trusted workspace."
+    }
+  },
+  "contributes": {
+    "languages": [
+      {
+        "id": "oracle-sql-notebook-file",
+        "aliases": [
+          "Oracle SQL Notebook"
+        ],
+        "extensions": [
+          ".isqlnb"
+        ],
+        "icon": {
+          "light": "media/icons/isqlnb-light.svg",
+          "dark": "media/icons/isqlnb-dark.svg"
+        }
+      }
+    ],
+    "notebooks": [
+      {
+        "type": "oracle-sql-notebook",
+        "displayName": "Oracle SQL Notebook",
+        "selector": [
+          {
+            "filenamePattern": "*.isqlnb"
+          }
+        ]
+      }
+    ],
+    "notebookRenderer": [
+      {
+        "id": "oracleSqlNotebook.tableRenderer",
+        "displayName": "Oracle SQL Table Renderer",
+        "entrypoint": "./media/tableRenderer.js",
+        "mimeTypes": [
+          "application/vnd.oracle-sql-notebook.table+json",
+          "application/vnd.oracle-sql-notebook.plan+json"
+        ]
+      }
+    ],
+    "commands": [
+      {
+        "command": "oracleSqlNotebook.configureConnection",
+        "title": "Oracle SQL Notebook: Configure Connection"
+      },
+      {
+        "command": "oracleSqlNotebook.setConnectionPassword",
+        "title": "Oracle SQL Notebook: Set Connection Password"
+      },
+      {
+        "command": "oracleSqlNotebook.clearConnectionPassword",
+        "title": "Oracle SQL Notebook: Clear Connection Password"
+      }
+    ],
+    "configuration": {
+      "title": "Oracle SQL Notebook",
+      "properties": {
+        "oracleSqlNotebook.defaultConnectionAlias": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Default connection alias used when notebook metadata has no `connectionAlias`."
+        },
+        "oracleSqlNotebook.connections": {
+          "type": "array",
+          "default": [],
+          "description": "Non-secret Oracle connection profiles. Passwords are stored separately in SecretStorage.",
+          "items": {
+            "type": "object",
+            "required": [
+              "alias",
+              "user",
+              "connectString"
+            ],
+            "properties": {
+              "alias": {
+                "type": "string",
+                "description": "Unique profile alias."
+              },
+              "user": {
+                "type": "string",
+                "description": "Database user name."
+              },
+              "connectString": {
+                "type": "string",
+                "description": "Oracle connect descriptor, EZCONNECT string, or service alias."
+              },
+              "poolMin": {
+                "type": "number",
+                "default": 0
+              },
+              "poolMax": {
+                "type": "number",
+                "default": 4
+              },
+              "poolIncrement": {
+                "type": "number",
+                "default": 1
+              }
+            }
+          }
+        },
+        "oracleSqlNotebook.execution.maxRows": {
+          "type": "number",
+          "default": 1000,
+          "minimum": 1,
+          "description": "Maximum rows rendered in notebook output for SELECT-like statements."
+        },
+        "oracleSqlNotebook.execution.callTimeoutMs": {
+          "type": "number",
+          "default": 30000,
+          "minimum": 1000,
+          "description": "Maximum duration for each Oracle round-trip call in milliseconds."
+        },
+        "oracleSqlNotebook.execution.fetchArraySize": {
+          "type": "number",
+          "default": 100,
+          "minimum": 1,
+          "description": "Row batch size fetched by node-oracledb into Node.js."
+        },
+        "oracleSqlNotebook.execution.prefetchRows": {
+          "type": "number",
+          "default": 100,
+          "minimum": 0,
+          "description": "Prefetch row count used by node-oracledb before iterative fetches."
+        },
+        "oracleSqlNotebook.pool.queueTimeoutMs": {
+          "type": "number",
+          "default": 60000,
+          "minimum": 0,
+          "description": "How long getConnection waits in pool queue before timing out."
+        },
+        "oracleSqlNotebook.pool.poolTimeoutSeconds": {
+          "type": "number",
+          "default": 300,
+          "minimum": 0,
+          "description": "Seconds before idle pooled connections are terminated."
+        },
+        "oracleSqlNotebook.pool.stmtCacheSize": {
+          "type": "number",
+          "default": 30,
+          "minimum": 0,
+          "description": "Statements cached per connection."
+        },
+        "oracleSqlNotebook.security.readOnlyMode": {
+          "type": "boolean",
+          "default": false,
+          "description": "When enabled, only SELECT/CTE queries are allowed."
+        },
+        "oracleSqlNotebook.security.blockedStatementPrefixes": {
+          "type": "array",
+          "default": [
+            "ALTER SYSTEM",
+            "DROP USER"
+          ],
+          "items": {
+            "type": "string"
+          },
+          "description": "Upper-cased SQL prefixes blocked before execution."
+        },
+        "oracleSqlNotebook.logging.level": {
+          "type": "string",
+          "enum": [
+            "error",
+            "warn",
+            "info",
+            "debug"
+          ],
+          "default": "info",
+          "description": "Output channel verbosity."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "clean": "rimraf dist",
+    "build": "npm run clean && node esbuild.mjs --production",
+    "watch": "node esbuild.mjs --watch",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint --max-warnings=0 \"src/**/*.ts\"",
+    "check": "npm run lint && npm run typecheck",
+    "test": "vitest run",
+    "test:integration": "vitest run test/integration/**/*.test.ts",
+    "test:watch": "vitest",
+    "pretest:e2e": "npm run build",
+    "test:e2e": "node ./test/e2e/runTests.js",
+    "prepackage": "npm run check && npm run test && npm run build",
+    "package": "vsce package"
+  },
+  "dependencies": {
+    "oracledb": "^6.9.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.30",
+    "@types/oracledb": "^6.10.3",
+    "@types/vscode": "^1.90.0",
+    "@typescript-eslint/eslint-plugin": "^8.30.1",
+    "@typescript-eslint/parser": "^8.30.1",
+    "@vscode/vsce": "^3.2.2",
+    "@vscode/test-electron": "^2.5.2",
+    "esbuild": "^0.25.2",
+    "eslint": "^8.57.1",
+    "rimraf": "^6.0.1",
+    "typescript": "^5.8.3",
+    "vitest": "^3.1.2"
+  }
+}

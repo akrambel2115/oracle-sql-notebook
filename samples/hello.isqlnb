@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "metadata": {
+    "connectionAlias": "dev"
+  },
+  "cells": [
+    {
+      "kind": "code",
+      "language": "sql",
+      "value": "select user, systimestamp from dual",
+      "metadata": {}
+    },
+    {
+      "kind": "code",
+      "language": "sql",
+      "value": "",
+      "metadata": {}
+    }
+  ]
+}
