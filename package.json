@@ -2,7 +2,7 @@
   "name": "oracle-sql-notebook",
   "displayName": "Oracle SQL Notebook",
   "description": "Run Oracle SQL queries natively in VS Code notebooks (.isqlnb).",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "publisher": "akrambel2115",
   "license": "MIT",
   "icon": "media/icons/extension-icon.png",
@@ -88,8 +88,30 @@
       {
         "command": "oracleSqlNotebook.clearConnectionPassword",
         "title": "Oracle SQL Notebook: Clear Connection Password"
+      },
+      {
+        "command": "oracleSqlNotebook.exportPdf",
+        "title": "Oracle SQL Notebook: Export Notebook as PDF"
+      },
+      {
+        "command": "oracleSqlNotebook.exportHtml",
+        "title": "Oracle SQL Notebook: Export Notebook as HTML"
       }
     ],
+    "menus": {
+      "notebook/toolbar": [
+        {
+          "command": "oracleSqlNotebook.exportPdf",
+          "when": "notebookType == 'oracle-sql-notebook'",
+          "group": "navigation@50"
+        },
+        {
+          "command": "oracleSqlNotebook.exportHtml",
+          "when": "notebookType == 'oracle-sql-notebook'",
+          "group": "navigation@51"
+        }
+      ]
+    },
     "configuration": {
       "title": "Oracle SQL Notebook",
       "properties": {
@@ -225,9 +247,11 @@
     "package": "vsce package"
   },
   "dependencies": {
+    "markdown-it": "^14.1.1",
     "oracledb": "^6.9.0"
   },
   "devDependencies": {
+    "@types/markdown-it": "^14.1.2",
     "@types/node": "^20.17.30",
     "@types/oracledb": "^6.10.3",
     "@types/vscode": "^1.90.0",
