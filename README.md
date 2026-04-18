@@ -1,27 +1,38 @@
-# Oracle SQL Notebook for VS Code
+# Oracle SQL Notebook
 
-A native Visual Studio Code notebook extension that allows you to run Oracle SQL queries interactively within `.isqlnb` files.
+Run Oracle SQL directly inside VS Code notebooks with a clean, native workflow.
 
-## Features
+![Oracle SQL Notebook Hero](media/readme/hero-banner.png)
 
-- **Interactive Notebooks:** Execute Oracle SQL and PL/SQL queries as notebook cells safely.
-- **Rich Data Output:** View query results in an interactive table renderer, allowing you to easily browse datasets natively in VS Code.
-- **Execution Plans:** Built-in support for rendering runtime execution plans (DBMS_XPLAN style).
-- **Session Continuity:** Multiple statements in the same notebook run in the same session by default, making it simple to define temporary tables or session variables.
-- **Secure Credential Storage:** Connection passwords are securely stored in VS Code's native SecretStorage—never saved as plain text in your settings or notebooks.
-- **Connection Pooling:** Powered by `node-oracledb` pools for high-performance and robust concurrent executions.
+[![Version](https://img.shields.io/badge/version-0.0.1-0f766e)](https://github.com/akrambel2115/oracle-sql-notebook/releases)
+[![VS Code](https://img.shields.io/badge/VS%20Code-%5E1.90.0-2563eb)](https://code.visualstudio.com/)
+[![License](https://img.shields.io/badge/license-MIT-1f2937)](LICENSE)
 
-## Getting Started
+Oracle SQL Notebook gives you a dedicated `.isqlnb` notebook experience for Oracle development: write queries, execute cells, inspect tabular outputs, and iterate quickly without leaving your editor.
 
-1. **Install the Extension** from the VS Code Marketplace.
-2. **Create a new file** with the `.isqlnb` extension (e.g., `query.isqlnb`).
-3. **Configure your connection** globally in your `settings.json` (see Configuration below). 
-4. **Set your password** by running the command `Oracle SQL Notebook: Set Connection Password` from the Command Palette (`Ctrl+Shift+P`).
-5. **Write your SQL** and hit the Run button on the cell!
+## Why It Feels Better
+
+- Notebook-native SQL workflow for Oracle inside VS Code.
+- Rich output renderer for result sets and execution plans.
+- Shared session per notebook run for realistic SQL/PLSQL workflows.
+- Pool-backed Oracle connections via `node-oracledb`.
+
+## Product Preview
+
+![Notebook Overview](media/readme/notebook-overview.png)
+
+
+## Quick Start
+
+1. Install the extension from Marketplace or from a local `.vsix` package.
+2. Create a notebook file ending with `.isqlnb`, for example `demo.isqlnb`.
+3. Configure one or more Oracle profiles in your user or workspace settings.
+4. Run `Oracle SQL Notebook: Set Connection Password` once from Command Palette.
+5. Execute SQL cells and iterate interactively.
 
 ## Configuration
 
-You can define multiple Oracle connections in your VS Code `settings.json` and set performance/safety preferences.
+Define non-secret connection profiles and execution preferences in `settings.json`:
 
 ```json
 {
@@ -44,42 +55,72 @@ You can define multiple Oracle connections in your VS Code `settings.json` and s
 }
 ```
 
-## Writing Queries
+![Configuration Screenshot](media/readme/configuration-settings.png)
 
-- **Single & Multiple Statements:** Statements separated by a semicolon (`;`) run sequentially.
-- **PL/SQL Blocks & Scripts:** For `CREATE PROCEDURE` / `FUNCTION` / `PACKAGE` scripts or PL/SQL blocks, use `/` on its own line as the block terminator, mirroring SQL*Plus behavior.
+## Query Authoring Notes
+
+- Statements separated by `;` run sequentially in a cell.
+- Use `/` on its own line to terminate PL/SQL blocks and script objects.
+- Session context is preserved across notebook cells during execution.
 
 ```sql
--- Standard queries
-SELECT * FROM employees;
+SELECT *
+FROM employees
+WHERE department_id = 60;
 ```
 
 ```sql
--- PL/SQL block execution
 BEGIN
   DBMS_OUTPUT.PUT_LINE('Hello from PL/SQL!');
 END;
 /
 ```
 
-## Security & Trust
+## Command Palette Shortcuts
 
-- **Workspace Trust:** Execution and privileged actions are gated behind VS Code's Workspace Trust requirements. Untrusted workspaces will block notebook execution.
-- **Strict Read-Only Mode:** Use the optional `oracleSqlNotebook.security.readOnlyMode` setting to restrict execution to `SELECT` and `CTE` queries only.
-- **Blocked Execution:** An optional `oracleSqlNotebook.security.blockedStatementPrefixes` configuration blocks unsafe SQL commands (e.g., `ALTER SYSTEM`, `DROP USER`).
-- **No Credentials in Files:** Authentication parameters like passwords remain out of your project metadata.
+- `Oracle SQL Notebook: Configure Connection`
+- `Oracle SQL Notebook: Set Connection Password`
+- `Oracle SQL Notebook: Clear Connection Password`
 
-## Development & Contributing
+![Command Palette Shortcuts Screenshot](media/readme/command-palette-shortcuts.png)
 
-To build, test, and package:
+## Security and Trust Model
+
+- Workspace Trust is required for execution and credential operations.
+- Optional read-only mode can block non-SELECT and non-CTE execution.
+- Blocklist protection can deny specific unsafe SQL prefixes.
+- Secrets are not written into notebook files or plain settings values.
+
+## Build, Test, Package
 
 ```bash
 npm install
 npm run check
-npm run test         # Unit Tests
-npm run test:e2e     # End-to-End Tests
+npm run test
+npm run test:e2e
 npm run build
-npm run package      # Build a .vsix for local installation
+npm run package
 ```
 
-To run smoke tests locally, press `F5` in VS Code to launch an Extension Development Host.
+`npm run package` creates a `.vsix` bundle in the project root for local install or distribution.
+
+## Install Local VSIX
+
+1. Open VS Code.
+2. Go to Extensions view.
+3. Open `...` menu and choose `Install from VSIX...`.
+4. Select the generated package file.
+
+## Roadmap Ideas
+
+- Inline explain plans with richer visuals.
+- Notebook-level connection switching UI.
+- Export outputs to CSV and JSON.
+- Performance insights for long-running SQL.
+
+## Contributing
+
+Issues and pull requests are welcome.
+
+- Report bugs: https://github.com/akrambel2115/oracle-sql-notebook/issues
+- Project home: https://github.com/akrambel2115/oracle-sql-notebook
