@@ -4,7 +4,7 @@ Run Oracle SQL directly inside VS Code notebooks with a clean, native workflow.
 
 ![Oracle SQL Notebook Hero](media/readme/hero-banner.png)
 
-[![Version](https://img.shields.io/badge/version-0.0.1-0f766e)](https://github.com/akrambel2115/oracle-sql-notebook/releases)
+[![Version](https://img.shields.io/badge/version-0.0.2-0f766e)](https://github.com/akrambel2115/oracle-sql-notebook/releases)
 [![VS Code](https://img.shields.io/badge/VS%20Code-%5E1.90.0-2563eb)](https://code.visualstudio.com/)
 [![License](https://img.shields.io/badge/license-MIT-1f2937)](LICENSE)
 

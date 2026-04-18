@@ -2,7 +2,7 @@
   "name": "oracle-sql-notebook",
   "displayName": "Oracle SQL Notebook",
   "description": "Run Oracle SQL queries natively in VS Code notebooks (.isqlnb).",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "publisher": "akrambel2115",
   "license": "MIT",
   "icon": "media/icons/extension-icon.png",
