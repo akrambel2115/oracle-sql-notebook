@@ -245,7 +245,7 @@ async function runConfigureConnectionWizard(
   const userInput = await vscode.window.showInputBox({
     title: `Configure '${alias}'`,
     prompt: "Oracle user",
-    value: existingProfile?.user ?? "",
+    value: existingProfile?.user ?? "imijdbManager",
     ignoreFocusOut: true,
     validateInput: (value) =>
       value.trim().length > 0 ? undefined : "User is required."
@@ -257,8 +257,8 @@ async function runConfigureConnectionWizard(
 
   const connectStringInput = await vscode.window.showInputBox({
     title: `Configure '${alias}'`,
-    prompt: "Connect string (example: localhost:1521/XEPDB1)",
-    value: existingProfile?.connectString ?? "",
+    prompt: "Connect string (example: localhost:1521/XE)",
+    value: existingProfile?.connectString ?? "localhost:1521/XE",
     ignoreFocusOut: true,
     validateInput: (value) =>
       value.trim().length > 0 ? undefined : "Connect string is required."
