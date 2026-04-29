@@ -9,6 +9,11 @@ import {
   getLoggingLevel,
   NOTEBOOK_TYPE
 } from "./config/settings";
+import {
+  convertNotebookToSqlCommand,
+  convertSqlToNotebookCommand
+} from "./conversion/commands";
+import { SqlNotebookValidationProvider } from "./conversion/validation";
 import { OraclePoolManager } from "./db/poolManager";
 import { OracleQueryExecutor, QueryExecutor } from "./db/queryExecutor";
 import { NotebookExportFormat, exportNotebook } from "./export/notebookExporter";
@@ -356,9 +361,11 @@ export function activate(
     logger,
     testMode
   });
+  const sqlNotebookValidation = new SqlNotebookValidationProvider();
 
   context.subscriptions.push(logger);
   context.subscriptions.push(notebookController);
+  context.subscriptions.push(sqlNotebookValidation);
 
   context.subscriptions.push(
     vscode.workspace.registerNotebookSerializer(
@@ -375,6 +382,40 @@ export function activate(
       if (event.affectsConfiguration(`${EXTENSION_ID}.logging.level`)) {
         logger.setLevel(getLoggingLevel());
       }
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.languages.registerCodeActionsProvider(
+      { language: "sql" },
+      sqlNotebookValidation,
+      {
+        providedCodeActionKinds: SqlNotebookValidationProvider.providedCodeActionKinds
+      }
+    )
+  );
+
+  context.subscriptions.push(
+    vscode.workspace.onDidOpenTextDocument((document) => {
+      sqlNotebookValidation.validateDocument(document);
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeTextDocument((event) => {
+      sqlNotebookValidation.validateDocument(event.document);
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.workspace.onDidSaveTextDocument((document) => {
+      sqlNotebookValidation.validateDocument(document);
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.workspace.onDidCloseTextDocument((document) => {
+      sqlNotebookValidation.clearDocument(document.uri);
     })
   );
 
@@ -470,6 +511,24 @@ export function activate(
       "oracleSqlNotebook.exportPdf",
       async (commandArg?: unknown) => {
         await runNotebookExportCommand("pdf", logger, commandArg);
+      }
+    )
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      "oracleSqlNotebook.convertNotebookToSql",
+      async (commandArg?: unknown) => {
+        await convertNotebookToSqlCommand(logger, commandArg);
+      }
+    )
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      "oracleSqlNotebook.convertSqlToNotebook",
+      async (commandArg?: unknown) => {
+        await convertSqlToNotebookCommand(logger, commandArg);
       }
     )
   );

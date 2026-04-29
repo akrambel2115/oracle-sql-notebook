@@ -30,7 +30,10 @@
   ],
   "main": "./dist/extension.js",
   "activationEvents": [
-    "onNotebook:oracle-sql-notebook"
+    "onNotebook:oracle-sql-notebook",
+    "onLanguage:sql",
+    "onCommand:oracleSqlNotebook.convertNotebookToSql",
+    "onCommand:oracleSqlNotebook.convertSqlToNotebook"
   ],
   "capabilities": {
     "untrustedWorkspaces": {
@@ -96,10 +99,23 @@
       {
         "command": "oracleSqlNotebook.exportHtml",
         "title": "Oracle SQL Notebook: Export Notebook as HTML"
+      },
+      {
+        "command": "oracleSqlNotebook.convertNotebookToSql",
+        "title": "Oracle SQL Notebook: Convert Notebook to SQL"
+      },
+      {
+        "command": "oracleSqlNotebook.convertSqlToNotebook",
+        "title": "Oracle SQL Notebook: Convert SQL to Notebook"
       }
     ],
     "menus": {
       "notebook/toolbar": [
+        {
+          "command": "oracleSqlNotebook.convertNotebookToSql",
+          "when": "notebookType == 'oracle-sql-notebook'",
+          "group": "navigation@49"
+        },
         {
           "command": "oracleSqlNotebook.exportPdf",
           "when": "notebookType == 'oracle-sql-notebook'",
@@ -109,6 +125,30 @@
           "command": "oracleSqlNotebook.exportHtml",
           "when": "notebookType == 'oracle-sql-notebook'",
           "group": "navigation@51"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "oracleSqlNotebook.convertNotebookToSql",
+          "when": "resourceExtname == .isqlnb",
+          "group": "navigation@60"
+        },
+        {
+          "command": "oracleSqlNotebook.convertSqlToNotebook",
+          "when": "resourceExtname == .sql",
+          "group": "navigation@61"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "oracleSqlNotebook.convertNotebookToSql",
+          "when": "resourceExtname == .isqlnb",
+          "group": "navigation@60"
+        },
+        {
+          "command": "oracleSqlNotebook.convertSqlToNotebook",
+          "when": "resourceExtname == .sql",
+          "group": "navigation@61"
         }
       ]
     },
