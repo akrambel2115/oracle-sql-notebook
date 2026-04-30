@@ -2,6 +2,8 @@
 
 Open these files in the Extension Development Host (`F5`). The validation layer only activates for `.sql` files that *already look like paired notebook SQL* (header and/or `-- %%` markers).
 
+Note: these samples intentionally avoid hard-coding `metadata.connectionAlias` unless a specific test needs it. If a paired SQL file includes a `connectionAlias` in its header, converting it back to `.isqlnb` will preserve that alias in notebook metadata.
+
 For each test file below:
 
 - Open `View -> Problems` to see the warnings.
@@ -15,6 +17,7 @@ For each test file below:
 - Expected:
   - No Problems from `oracle-sql-notebook`
   - Conversion succeeds without warning prompt (other than overwrite)
+  - The converted notebook does not pin a specific connection alias
 
 ### 2) Missing Header (warning + quick fix, conversion allowed with warning prompt)
 - File: `02_missing_header.sql`
@@ -74,4 +77,3 @@ For each test file below:
 - Expected:
   - Problem code: `missingCellMarkers`
   - Conversion: allowed, but prompts due to warnings
-

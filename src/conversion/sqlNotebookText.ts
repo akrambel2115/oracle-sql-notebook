@@ -271,7 +271,7 @@ function parseCellMarkerLine(
     return undefined;
   }
 
-  const match = CELL_MARKER_PATTERN.exec(line.text);
+  const match = CELL_MARKER_PATTERN.exec(trimmed);
 
   if (!match) {
     issues.push(

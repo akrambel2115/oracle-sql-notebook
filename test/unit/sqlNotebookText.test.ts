@@ -132,6 +132,26 @@ describe("SQL notebook text conversion", () => {
     expect(issue?.quickFix).toBeDefined();
   });
 
+  it("parses indented cell markers consistently", () => {
+    const analysis = analyzeSqlNotebookText(
+      [
+        '-- oracle-sql-notebook: {"schemaVersion":1,"metadata":{}}',
+        "  -- %% [sql] {\"metadata\":{}}",
+        "select 1 from dual;"
+      ].join("\n")
+    );
+
+    expect(analysis.issues).toHaveLength(0);
+    expect(analysis.notebook.cells).toEqual([
+      {
+        kind: "code",
+        language: "sql",
+        value: "select 1 from dual;",
+        metadata: {}
+      }
+    ]);
+  });
+
   it("reports unsupported schema versions as blocking issues", () => {
     const analysis = analyzeSqlNotebookText(
       '-- oracle-sql-notebook: {"schemaVersion":99,"metadata":{}}\n-- %% [sql]'

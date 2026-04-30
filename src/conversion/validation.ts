@@ -8,6 +8,7 @@ import {
 } from "./sqlNotebookText";
 
 const DIAGNOSTIC_SOURCE = "oracle-sql-notebook";
+const VALIDATION_DEBOUNCE_MS = 250;
 
 function isSqlDocument(document: vscode.TextDocument): boolean {
   return document.uri.path.toLowerCase().endsWith(".sql");
@@ -50,6 +51,7 @@ export class SqlNotebookValidationProvider implements vscode.CodeActionProvider,
   );
 
   private readonly analyses = new Map<string, SqlNotebookAnalysisResult>();
+  private readonly pendingValidations = new Map<string, NodeJS.Timeout>();
 
   public constructor() {
     for (const document of vscode.workspace.textDocuments) {
@@ -58,8 +60,34 @@ export class SqlNotebookValidationProvider implements vscode.CodeActionProvider,
   }
 
   public dispose(): void {
+    for (const timeout of this.pendingValidations.values()) {
+      clearTimeout(timeout);
+    }
+
+    this.pendingValidations.clear();
     this.diagnostics.dispose();
     this.analyses.clear();
+  }
+
+  public debounceValidateDocument(document: vscode.TextDocument): void {
+    if (!isSqlDocument(document)) {
+      this.clearDocument(document.uri);
+      return;
+    }
+
+    const key = document.uri.toString();
+    const existingTimeout = this.pendingValidations.get(key);
+
+    if (existingTimeout) {
+      clearTimeout(existingTimeout);
+    }
+
+    const timeout = setTimeout(() => {
+      this.pendingValidations.delete(key);
+      this.validateDocument(document);
+    }, VALIDATION_DEBOUNCE_MS);
+
+    this.pendingValidations.set(key, timeout);
   }
 
   public validateDocument(document: vscode.TextDocument): void {
@@ -81,7 +109,15 @@ export class SqlNotebookValidationProvider implements vscode.CodeActionProvider,
   }
 
   public clearDocument(uri: vscode.Uri): void {
-    this.analyses.delete(uri.toString());
+    const key = uri.toString();
+    const existingTimeout = this.pendingValidations.get(key);
+
+    if (existingTimeout) {
+      clearTimeout(existingTimeout);
+      this.pendingValidations.delete(key);
+    }
+
+    this.analyses.delete(key);
     this.diagnostics.delete(uri);
   }
 
@@ -133,7 +169,12 @@ export class SqlNotebookValidationProvider implements vscode.CodeActionProvider,
       edit.replace(document.uri, toVsCodeRange(issue.quickFix.range), issue.quickFix.replacementText);
       action.edit = edit;
       action.diagnostics = context.diagnostics.filter(
-        (diagnostic) => diagnostic.code === issue.code
+        (diagnostic) =>
+          diagnostic.code === issue.code &&
+          diagnostic.range.start.line === issue.range.startLine &&
+          diagnostic.range.start.character === issue.range.startCharacter &&
+          diagnostic.range.end.line === issue.range.endLine &&
+          diagnostic.range.end.character === issue.range.endCharacter
       );
       actions.push(action);
     }

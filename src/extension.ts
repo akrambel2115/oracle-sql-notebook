@@ -92,6 +92,20 @@ function isOracleSqlNotebookDocument(notebook: vscode.NotebookDocument): boolean
   return notebook.notebookType === NOTEBOOK_TYPE || hasIsqlnbExtension(notebook.uri);
 }
 
+async function updateNotebookConnectionAlias(
+  notebook: vscode.NotebookDocument,
+  alias: string
+): Promise<void> {
+  const currentMetadata = isRecord(notebook.metadata) ? notebook.metadata : {};
+  const nextMetadata: Record<string, unknown> = {
+    ...currentMetadata,
+    connectionAlias: alias
+  };
+  const edit = new vscode.WorkspaceEdit();
+  edit.set(notebook.uri, [vscode.NotebookEdit.updateNotebookMetadata(nextMetadata)]);
+  await vscode.workspace.applyEdit(edit);
+}
+
 function tryGetNotebookDocument(
   commandArg: unknown
 ): vscode.NotebookDocument | undefined {
@@ -332,6 +346,10 @@ async function runConfigureConnectionWizard(
     await secretStore.setConnectionPassword(alias, password);
   }
 
+  if (notebook && isOracleSqlNotebookDocument(notebook)) {
+    await updateNotebookConnectionAlias(notebook, alias);
+  }
+
   void vscode.window.showInformationMessage(
     `Oracle connection '${alias}' has been configured.`
   );
@@ -403,7 +421,7 @@ export function activate(
 
   context.subscriptions.push(
     vscode.workspace.onDidChangeTextDocument((event) => {
-      sqlNotebookValidation.validateDocument(event.document);
+      sqlNotebookValidation.debounceValidateDocument(event.document);
     })
   );
 
@@ -423,7 +441,14 @@ export function activate(
     vscode.commands.registerCommand(
       "oracleSqlNotebook.configureConnection",
       async (notebook?: vscode.NotebookDocument) => {
-        await runConfigureConnectionWizard(secretStore, notebook);
+        const targetNotebook =
+          notebook ??
+          (vscode.window.activeNotebookEditor?.notebook &&
+          isOracleSqlNotebookDocument(vscode.window.activeNotebookEditor.notebook)
+            ? vscode.window.activeNotebookEditor.notebook
+            : undefined);
+
+        await runConfigureConnectionWizard(secretStore, targetNotebook);
       }
     )
   );

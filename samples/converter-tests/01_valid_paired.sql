@@ -1,4 +1,4 @@
--- oracle-sql-notebook: {"schemaVersion":1,"metadata":{"connectionAlias":"dev"}}
+-- oracle-sql-notebook: {"schemaVersion":1,"metadata":{}}
 -- %% [sql] {"metadata":{}}
 select user, systimestamp from dual;
 
@@ -8,4 +8,3 @@ select user, systimestamp from dual;
 
 -- %% [sql] {"metadata":{"name":"query-2"}}
 select 1 as one from dual;
-
