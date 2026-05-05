@@ -9,6 +9,11 @@ import {
   getLoggingLevel,
   NOTEBOOK_TYPE
 } from "./config/settings";
+import {
+  convertNotebookToSqlCommand,
+  convertSqlToNotebookCommand
+} from "./conversion/commands";
+import { SqlNotebookValidationProvider } from "./conversion/validation";
 import { OraclePoolManager } from "./db/poolManager";
 import { OracleQueryExecutor, QueryExecutor } from "./db/queryExecutor";
 import { NotebookExportFormat, exportNotebook } from "./export/notebookExporter";
@@ -85,6 +90,20 @@ function hasIsqlnbExtension(uri: vscode.Uri): boolean {
 
 function isOracleSqlNotebookDocument(notebook: vscode.NotebookDocument): boolean {
   return notebook.notebookType === NOTEBOOK_TYPE || hasIsqlnbExtension(notebook.uri);
+}
+
+async function updateNotebookConnectionAlias(
+  notebook: vscode.NotebookDocument,
+  alias: string
+): Promise<void> {
+  const currentMetadata = isRecord(notebook.metadata) ? notebook.metadata : {};
+  const nextMetadata: Record<string, unknown> = {
+    ...currentMetadata,
+    connectionAlias: alias
+  };
+  const edit = new vscode.WorkspaceEdit();
+  edit.set(notebook.uri, [vscode.NotebookEdit.updateNotebookMetadata(nextMetadata)]);
+  await vscode.workspace.applyEdit(edit);
 }
 
 function tryGetNotebookDocument(
@@ -327,6 +346,10 @@ async function runConfigureConnectionWizard(
     await secretStore.setConnectionPassword(alias, password);
   }
 
+  if (notebook && isOracleSqlNotebookDocument(notebook)) {
+    await updateNotebookConnectionAlias(notebook, alias);
+  }
+
   void vscode.window.showInformationMessage(
     `Oracle connection '${alias}' has been configured.`
   );
@@ -356,9 +379,11 @@ export function activate(
     logger,
     testMode
   });
+  const sqlNotebookValidation = new SqlNotebookValidationProvider();
 
   context.subscriptions.push(logger);
   context.subscriptions.push(notebookController);
+  context.subscriptions.push(sqlNotebookValidation);
 
   context.subscriptions.push(
     vscode.workspace.registerNotebookSerializer(
@@ -379,10 +404,51 @@ export function activate(
   );
 
   context.subscriptions.push(
+    vscode.languages.registerCodeActionsProvider(
+      { language: "sql" },
+      sqlNotebookValidation,
+      {
+        providedCodeActionKinds: SqlNotebookValidationProvider.providedCodeActionKinds
+      }
+    )
+  );
+
+  context.subscriptions.push(
+    vscode.workspace.onDidOpenTextDocument((document) => {
+      sqlNotebookValidation.validateDocument(document);
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeTextDocument((event) => {
+      sqlNotebookValidation.debounceValidateDocument(event.document);
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.workspace.onDidSaveTextDocument((document) => {
+      sqlNotebookValidation.validateDocument(document);
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.workspace.onDidCloseTextDocument((document) => {
+      sqlNotebookValidation.clearDocument(document.uri);
+    })
+  );
+
+  context.subscriptions.push(
     vscode.commands.registerCommand(
       "oracleSqlNotebook.configureConnection",
       async (notebook?: vscode.NotebookDocument) => {
-        await runConfigureConnectionWizard(secretStore, notebook);
+        const targetNotebook =
+          notebook ??
+          (vscode.window.activeNotebookEditor?.notebook &&
+          isOracleSqlNotebookDocument(vscode.window.activeNotebookEditor.notebook)
+            ? vscode.window.activeNotebookEditor.notebook
+            : undefined);
+
+        await runConfigureConnectionWizard(secretStore, targetNotebook);
       }
     )
   );
@@ -470,6 +536,24 @@ export function activate(
       "oracleSqlNotebook.exportPdf",
       async (commandArg?: unknown) => {
         await runNotebookExportCommand("pdf", logger, commandArg);
+      }
+    )
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      "oracleSqlNotebook.convertNotebookToSql",
+      async (commandArg?: unknown) => {
+        await convertNotebookToSqlCommand(logger, commandArg);
+      }
+    )
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand(
+      "oracleSqlNotebook.convertSqlToNotebook",
+      async (commandArg?: unknown) => {
+        await convertSqlToNotebookCommand(logger, commandArg);
       }
     )
   );
