@@ -13,6 +13,13 @@ import {
 const textDecoder = new TextDecoder();
 const textEncoder = new TextEncoder();
 
+type DestinationExtension = "isqlnb" | "sql";
+
+interface ConversionPaths {
+  source: vscode.Uri;
+  destination: vscode.Uri;
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
@@ -67,7 +74,11 @@ function isOracleSqlNotebookDocument(notebook: vscode.NotebookDocument): boolean
   return notebook.notebookType === NOTEBOOK_TYPE || hasExtension(notebook.uri, ".isqlnb");
 }
 
-function getSiblingUri(uri: vscode.Uri, extension: "isqlnb" | "sql"): vscode.Uri {
+function getUriLabel(uri: vscode.Uri): string {
+  return uri.scheme === "file" ? uri.fsPath : uri.toString();
+}
+
+function getSiblingUri(uri: vscode.Uri, extension: DestinationExtension): vscode.Uri {
   const parsedPath = path.posix.parse(uri.path);
   return uri.with({
     path: path.posix.join(parsedPath.dir, `${parsedPath.name}.${extension}`)
@@ -78,24 +89,130 @@ async function pathExists(uri: vscode.Uri): Promise<boolean> {
   try {
     await vscode.workspace.fs.stat(uri);
     return true;
-  } catch {
-    return false;
+  } catch (error) {
+    if (error instanceof vscode.FileSystemError && error.code === "FileNotFound") {
+      return false;
+    }
+
+    throw new Error(
+      `Could not check whether '${getUriLabel(uri)}' exists: ${
+        error instanceof Error ? error.message : String(error)
+      }`
+    );
   }
 }
 
-async function confirmOverwrite(uri: vscode.Uri): Promise<boolean> {
-  if (!(await pathExists(uri))) {
-    return true;
+async function pickDestinationUri(
+  defaultUri: vscode.Uri,
+  extension: DestinationExtension
+): Promise<vscode.Uri | undefined> {
+  const destination = await vscode.window.showSaveDialog({
+    defaultUri,
+    filters: {
+      [extension === "sql" ? "SQL" : "Oracle SQL Notebook"]: [extension]
+    },
+    saveLabel: extension === "sql" ? "Convert to SQL" : "Convert to Notebook"
+  });
+
+  if (!destination) {
+    return undefined;
   }
 
-  const label = uri.scheme === "file" ? uri.fsPath : uri.toString();
+  if (!hasExtension(destination, `.${extension}`)) {
+    void vscode.window.showErrorMessage(
+      `Choose a destination file ending in .${extension}.`
+    );
+    return undefined;
+  }
+
+  return destination;
+}
+
+async function resolveDestinationUri(
+  defaultUri: vscode.Uri,
+  extension: DestinationExtension
+): Promise<vscode.Uri | undefined> {
+  const destination = await pickDestinationUri(defaultUri, extension);
+
+  if (!destination) {
+    return undefined;
+  }
+
+  if (!(await pathExists(destination))) {
+    return destination;
+  }
+
   const choice = await vscode.window.showWarningMessage(
-    `${label} already exists. Overwrite it?`,
+    `${getUriLabel(destination)} already exists. Overwrite it?`,
     { modal: true },
     "Overwrite"
   );
 
-  return choice === "Overwrite";
+  if (choice !== "Overwrite") {
+    return undefined;
+  }
+
+  return destination;
+}
+
+async function writeTextFile(uri: vscode.Uri, contents: string): Promise<void> {
+  try {
+    await vscode.workspace.fs.writeFile(uri, textEncoder.encode(contents));
+  } catch (error) {
+    throw new Error(
+      `Could not write '${getUriLabel(uri)}': ${
+        error instanceof Error ? error.message : String(error)
+      }`
+    );
+  }
+}
+
+async function readTextFile(uri: vscode.Uri): Promise<string> {
+  try {
+    return textDecoder.decode(await vscode.workspace.fs.readFile(uri));
+  } catch (error) {
+    throw new Error(
+      `Could not read '${getUriLabel(uri)}': ${
+        error instanceof Error ? error.message : String(error)
+      }`
+    );
+  }
+}
+
+function formatConversionError(
+  direction: string,
+  error: unknown,
+  paths?: Partial<ConversionPaths>
+): string {
+  const details = error instanceof Error ? error.message : String(error);
+  const source = paths?.source ? `\nSource: ${getUriLabel(paths.source)}` : "";
+  const destination = paths?.destination
+    ? `\nDestination: ${getUriLabel(paths.destination)}`
+    : "";
+
+  return `Failed to convert ${direction}.${source}${destination}\n\n${details}`;
+}
+
+async function yieldToUi(): Promise<void> {
+  await new Promise<void>((resolve) => setTimeout(resolve, 0));
+}
+
+function stringifyNotebook(rawNotebook: RawNotebookV1): string {
+  return JSON.stringify(rawNotebook);
+}
+
+async function runConversionWithProgress<T>(
+  title: string,
+  task: () => Promise<T>
+): Promise<T> {
+  return vscode.window.withProgress(
+    {
+      location: vscode.ProgressLocation.Notification,
+      title,
+      cancellable: false
+    },
+    async () => task()
+  );
 }
 
 async function showConvertedMessage(
@@ -212,6 +329,8 @@ export async function convertNotebookToSqlCommand(
   logger: Logger,
   commandArg?: unknown
 ): Promise<void> {
+  const paths: Partial<ConversionPaths> = {};
+
   try {
     const notebook = await resolveNotebookForConversion(commandArg);
 
@@ -219,33 +338,32 @@ export async function convertNotebookToSqlCommand(
       return;
     }
 
-    const destination = getSiblingUri(notebook.uri, "sql");
+    paths.source = notebook.uri;
+    const destination = await resolveDestinationUri(getSiblingUri(notebook.uri, "sql"), "sql");
 
-    if (!(await confirmOverwrite(destination))) {
+    if (!destination) {
       return;
     }
 
-    const rawNotebook = notebookToRawNotebook(notebook);
-    rawNotebook.metadata = isRecord(notebook.metadata) ? notebook.metadata : {};
+    paths.destination = destination;
 
-    await vscode.workspace.fs.writeFile(
-      destination,
-      textEncoder.encode(serializeNotebookToSql(rawNotebook))
+    await runConversionWithProgress(
+      "Converting Oracle SQL Notebook to SQL",
+      async () => {
+        await yieldToUi();
+        const rawNotebook = notebookToRawNotebook(notebook);
+        rawNotebook.metadata = isRecord(notebook.metadata) ? notebook.metadata : {};
+        await writeTextFile(destination, serializeNotebookToSql(rawNotebook));
+      }
     );
 
     await showConvertedMessage(
-      `Oracle SQL Notebook converted to SQL: ${
-        destination.scheme === "file" ? destination.fsPath : destination.toString()
-      }`,
+      `Oracle SQL Notebook converted to SQL: ${getUriLabel(destination)}`,
       destination
     );
   } catch (error) {
     logger.error("Failed to convert notebook to SQL.", error);
-    void vscode.window.showErrorMessage(
-      `Failed to convert notebook to SQL: ${
-        error instanceof Error ? error.message : String(error)
-      }`
-    );
+    void vscode.window.showErrorMessage(formatConversionError("notebook to SQL", error, paths));
   }
 }
 
@@ -253,6 +371,8 @@ export async function convertSqlToNotebookCommand(
   logger: Logger,
   commandArg?: unknown
 ): Promise<void> {
+  const paths: Partial<ConversionPaths> = {};
+
   try {
     const source = resolveSqlUri(commandArg);
 
@@ -260,25 +380,29 @@ export async function convertSqlToNotebookCommand(
       return;
     }
 
-    const destination = getSiblingUri(source, "isqlnb");
+    paths.source = source;
+    const destination = await resolveDestinationUri(getSiblingUri(source, "isqlnb"), "isqlnb");
 
-    if (!(await confirmOverwrite(destination))) {
+    if (!destination) {
       return;
     }
 
-    const sqlText = textDecoder.decode(await vscode.workspace.fs.readFile(source));
-    const analysis = analyzeSqlNotebookText(sqlText);
+    paths.destination = destination;
+
+    const analysis = await runConversionWithProgress(
+      "Reading and analyzing SQL",
+      async () => {
+        const sqlText = await readTextFile(source);
+        await yieldToUi();
+        return analyzeSqlNotebookText(sqlText);
+      }
+    );
 
     if (!analysis.isPairedFormat) {
-      await vscode.workspace.fs.writeFile(
-        destination,
-        textEncoder.encode(JSON.stringify(analysis.notebook, null, 2))
-      );
+      await writeTextFile(destination, stringifyNotebook(analysis.notebook));
 
       await showConvertedMessage(
-        `SQL converted to Oracle SQL Notebook: ${
-          destination.scheme === "file" ? destination.fsPath : destination.toString()
-        }`,
+        `SQL converted to Oracle SQL Notebook: ${getUriLabel(destination)}`,
         destination
       );
       return;
@@ -301,23 +425,14 @@ export async function convertSqlToNotebookCommand(
       return;
     }
 
-    await vscode.workspace.fs.writeFile(
-      destination,
-      textEncoder.encode(JSON.stringify(analysis.notebook, null, 2))
-    );
+    await writeTextFile(destination, stringifyNotebook(analysis.notebook));
 
     await showConvertedMessage(
-      `SQL converted to Oracle SQL Notebook: ${
-        destination.scheme === "file" ? destination.fsPath : destination.toString()
-      }`,
+      `SQL converted to Oracle SQL Notebook: ${getUriLabel(destination)}`,
       destination
     );
   } catch (error) {
     logger.error("Failed to convert SQL to notebook.", error);
-    void vscode.window.showErrorMessage(
-      `Failed to convert SQL to notebook: ${
-        error instanceof Error ? error.message : String(error)
-      }`
-    );
+    void vscode.window.showErrorMessage(formatConversionError("SQL to notebook", error, paths));
   }
 }

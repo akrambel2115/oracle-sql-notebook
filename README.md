@@ -77,6 +77,35 @@ END;
 /
 ```
 
+## SQL Round-Trip Format
+
+Use `Oracle SQL Notebook: Convert Notebook to SQL` to create a readable `.sql`
+file from an `.isqlnb` notebook. Use `Oracle SQL Notebook: Convert SQL to
+Notebook` to convert a supported `.sql` file back to `.isqlnb`. The save dialog
+defaults to a sibling file with the same base name, but you can choose a
+different output location or file name before conversion.
+
+The SQL side uses Jupytext-style cell markers:
+
+```sql
+-- oracle-sql-notebook: {"schemaVersion":1,"metadata":{"connectionAlias":"dev"}}
+-- %% [sql] {"metadata":{}}
+select * from dual;
+
+-- %% [markdown] {"metadata":{}}
+-- # Notes
+-- Markdown cells are stored as SQL comments.
+```
+
+Notebook metadata and cell metadata are preserved through compact JSON comments.
+Outputs, execution state, and secrets are never written to the `.sql` file.
+Plain `.sql` files without markers convert into a notebook with one SQL cell.
+When a `.sql` file already looks like paired notebook SQL, the extension validates
+that structure in the editor and surfaces Problems/quick fixes for format drift.
+Broken header or marker JSON blocks conversion; softer issues such as missing
+headers, stray text outside cells, or markdown lines without `-- ` stay as
+warnings and can still be converted deliberately.
+
 ## Command Palette Shortcuts
 
 - `Oracle SQL Notebook: Configure Connection`
@@ -84,6 +113,8 @@ END;
 - `Oracle SQL Notebook: Clear Connection Password`
 - `Oracle SQL Notebook: Export Notebook as HTML`
 - `Oracle SQL Notebook: Export Notebook as PDF`
+- `Oracle SQL Notebook: Convert Notebook to SQL`
+- `Oracle SQL Notebook: Convert SQL to Notebook`
 
 ![Command Palette Shortcuts Screenshot](media/readme/command-palette-shortcuts.png)
 
